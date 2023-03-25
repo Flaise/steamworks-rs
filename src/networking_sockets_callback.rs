@@ -2,7 +2,7 @@ use crate::networking_sockets::NetConnection;
 use crate::networking_types::{
     NetConnectionEnd, NetConnectionStatusChanged, NetworkingConnectionState,
 };
-use crate::{register_callback, CallbackHandle, Inner};
+use crate::{register_callback, CallbackHandle, Inner, Manager};
 use std::sync::{Arc, Weak};
 use steamworks_sys as sys;
 use sys::ISteamNetworkingSockets;
@@ -10,10 +10,10 @@ use sys::ISteamNetworkingSockets;
 /// All independent connections (to a remote host) and listening sockets share the same Callback for
 /// `NetConnectionStatusChangedCallback`. This function either returns the existing handle, or creates a new
 /// handler.
-pub(crate) fn get_or_create_connection_callback<Manager: 'static>(
-    inner: Arc<Inner<Manager>>,
+pub(crate) fn get_or_create_connection_callback<M: Manager + 'static>(
+    inner: Arc<Inner<M>>,
     sockets: *mut ISteamNetworkingSockets,
-) -> Arc<CallbackHandle<Manager>> {
+) -> Arc<CallbackHandle<M>> {
     let mut network_socket_data = inner.networking_sockets_data.lock().unwrap();
     if let Some(callback) = network_socket_data.connection_callback.upgrade() {
         callback
@@ -34,15 +34,15 @@ pub(crate) fn get_or_create_connection_callback<Manager: 'static>(
     }
 }
 
-pub(crate) struct ConnectionCallbackHandler<Manager> {
-    inner: Weak<Inner<Manager>>,
+pub(crate) struct ConnectionCallbackHandler<M: Manager> {
+    inner: Weak<Inner<M>>,
     sockets: *mut ISteamNetworkingSockets,
 }
 
-unsafe impl<Manager> Send for ConnectionCallbackHandler<Manager> {}
-unsafe impl<Manager> Sync for ConnectionCallbackHandler<Manager> {}
+unsafe impl<M: Manager> Send for ConnectionCallbackHandler<M> {}
+unsafe impl<M: Manager> Sync for ConnectionCallbackHandler<M> {}
 
-impl<Manager: 'static> ConnectionCallbackHandler<Manager> {
+impl<M: Manager + 'static> ConnectionCallbackHandler<M> {
     pub(crate) fn callback(&self, event: NetConnectionStatusChanged) {
         if let Some(socket) = event.connection_info.listen_socket() {
             self.listen_socket_callback(socket, event);

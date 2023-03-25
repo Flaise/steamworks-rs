@@ -1,5 +1,5 @@
 use crate::networking_types::{NetworkingAvailabilityResult, NetworkingMessage};
-use crate::{register_callback, Callback, Inner};
+use crate::{register_callback, Callback, Inner, Manager};
 use std::convert::TryInto;
 use std::ffi::{c_void, CStr};
 use std::sync::Arc;
@@ -7,15 +7,15 @@ use std::sync::Arc;
 use steamworks_sys as sys;
 
 /// Access to the steam networking sockets interface
-pub struct NetworkingUtils<Manager> {
+pub struct NetworkingUtils<M: Manager> {
     pub(crate) utils: *mut sys::ISteamNetworkingUtils,
-    pub(crate) inner: Arc<Inner<Manager>>,
+    pub(crate) inner: Arc<Inner<M>>,
 }
 
-unsafe impl<T> Send for NetworkingUtils<T> {}
-unsafe impl<T> Sync for NetworkingUtils<T> {}
+unsafe impl<T: Manager> Send for NetworkingUtils<T> {}
+unsafe impl<T: Manager> Sync for NetworkingUtils<T> {}
 
-impl<Manager> NetworkingUtils<Manager> {
+impl<M: Manager> NetworkingUtils<M> {
     /// Allocate and initialize a message object.  Usually the reason
     /// you call this is to pass it to ISteamNetworkingSockets::SendMessages.
     /// The returned object will have all of the relevant fields cleared to zero.
@@ -30,7 +30,7 @@ impl<Manager> NetworkingUtils<Manager> {
     /// If cbAllocateBuffer=0, then no buffer is allocated.  m_pData will be NULL,
     /// m_cbSize will be zero, and m_pfnFreeData will be NULL.  You will need to
     /// set each of these.
-    pub fn allocate_message(&self, buffer_size: usize) -> NetworkingMessage<Manager> {
+    pub fn allocate_message(&self, buffer_size: usize) -> NetworkingMessage<M> {
         unsafe {
             let message =
                 sys::SteamAPI_ISteamNetworkingUtils_AllocateMessage(self.utils, buffer_size as _);

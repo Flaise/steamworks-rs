@@ -3,9 +3,9 @@ use super::*;
 use serial_test::serial;
 
 /// Access to the steam matchmaking interface
-pub struct Matchmaking<Manager> {
+pub struct Matchmaking<M: Manager> {
     pub(crate) mm: *mut sys::ISteamMatchmaking,
-    pub(crate) inner: Arc<Inner<Manager>>,
+    pub(crate) inner: Arc<Inner<M>>,
 }
 
 const CALLBACK_BASE_ID: i32 = 500;
@@ -42,7 +42,7 @@ impl LobbyId {
     }
 }
 
-impl<Manager> Matchmaking<Manager> {
+impl<M: Manager> Matchmaking<M> {
     pub fn request_lobby_list<F>(&self, cb: F)
     where
         F: FnOnce(SResult<Vec<LobbyId>>) + 'static + Send,

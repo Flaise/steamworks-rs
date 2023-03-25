@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::networking_sockets::{InnerSocket, NetConnection};
 use crate::networking_types::NetConnectionError::UnhandledType;
-use crate::{Callback, Inner, SResult, SteamId};
+use crate::{Callback, Inner, SResult, SteamId, Manager};
 use std::convert::{TryFrom, TryInto};
 use std::ffi::{c_void, CString};
 use std::fmt::{Debug, Display, Formatter};
@@ -1128,10 +1128,10 @@ unsafe impl Callback for NetConnectionStatusChanged {
 }
 
 impl NetConnectionStatusChanged {
-    pub(crate) fn into_listen_socket_event<Manager: 'static>(
+    pub(crate) fn into_listen_socket_event<M: Manager + 'static>(
         self,
-        socket: Arc<InnerSocket<Manager>>,
-    ) -> Result<ListenSocketEvent<Manager>, NetConnectionError> {
+        socket: Arc<InnerSocket<M>>,
+    ) -> Result<ListenSocketEvent<M>, NetConnectionError> {
         match self.connection_info.state() {
             Ok(NetworkingConnectionState::None) => {
                 Err(UnhandledType(NetworkingConnectionState::None))
@@ -1191,19 +1191,19 @@ impl NetConnectionStatusChanged {
     }
 }
 
-pub enum ListenSocketEvent<Manager> {
-    Connecting(ConnectionRequest<Manager>),
-    Connected(ConnectedEvent<Manager>),
+pub enum ListenSocketEvent<M: Manager> {
+    Connecting(ConnectionRequest<M>),
+    Connected(ConnectedEvent<M>),
     Disconnected(DisconnectedEvent),
 }
 
-pub struct ConnectionRequest<Manager> {
+pub struct ConnectionRequest<M: Manager> {
     remote: NetworkingIdentity,
     user_data: i64,
-    connection: NetConnection<Manager>,
+    connection: NetConnection<M>,
 }
 
-impl<Manager: 'static> ConnectionRequest<Manager> {
+impl<M: Manager + 'static> ConnectionRequest<M> {
     pub fn remote(&self) -> NetworkingIdentity {
         self.remote.clone()
     }
@@ -1221,24 +1221,24 @@ impl<Manager: 'static> ConnectionRequest<Manager> {
     }
 }
 
-pub struct ConnectedEvent<Manager> {
+pub struct ConnectedEvent<M: Manager> {
     remote: NetworkingIdentity,
     user_data: i64,
-    connection: NetConnection<Manager>,
+    connection: NetConnection<M>,
 }
 
-impl<Manager> ConnectedEvent<Manager> {
+impl<M: Manager> ConnectedEvent<M> {
     pub fn remote(&self) -> NetworkingIdentity {
         self.remote.clone()
     }
     pub fn user_data(&self) -> i64 {
         self.user_data
     }
-    pub fn connection(&self) -> &NetConnection<Manager> {
+    pub fn connection(&self) -> &NetConnection<M> {
         &self.connection
     }
 
-    pub fn take_connection(self) -> NetConnection<Manager> {
+    pub fn take_connection(self) -> NetConnection<M> {
         self.connection
     }
 }
@@ -1511,14 +1511,14 @@ impl Default for NetworkingIdentity {
     }
 }
 
-pub struct NetworkingMessage<Manager> {
+pub struct NetworkingMessage<M: Manager> {
     pub(crate) message: *mut sys::SteamNetworkingMessage_t,
 
     // Not sure if this is necessary here, we may not need a Manager to use free on messages
-    pub(crate) _inner: Arc<Inner<Manager>>,
+    pub(crate) _inner: Arc<Inner<M>>,
 }
 
-impl<Manager> NetworkingMessage<Manager> {
+impl<M: Manager> NetworkingMessage<M> {
     /// For messages received on connections: what connection did this come from?
     /// For outgoing messages: what connection to send it to?
     /// Not used when using the ISteamNetworkingMessages interface
@@ -1536,7 +1536,7 @@ impl<Manager> NetworkingMessage<Manager> {
     /// Make sure you don't close or drop the `NetConnection` before sending your message.
     ///
     /// Use this with `ListenSocket::send_messages` for efficient sending.
-    pub fn set_connection(&mut self, connection: &NetConnection<Manager>) {
+    pub fn set_connection(&mut self, connection: &NetConnection<M>) {
         unsafe { (*self.message).m_conn = connection.handle }
     }
 
@@ -1693,7 +1693,7 @@ extern "C" fn free_rust_message_buffer(message: *mut sys::SteamNetworkingMessage
     }
 }
 
-impl<Manager> Drop for NetworkingMessage<Manager> {
+impl<M: Manager> Drop for NetworkingMessage<M> {
     fn drop(&mut self) {
         if !self.message.is_null() {
             unsafe { sys::SteamAPI_SteamNetworkingMessage_t_Release(self.message) }

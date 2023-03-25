@@ -14,13 +14,13 @@ pub unsafe trait Callback {
 /// at a later point.
 ///
 /// Removes the callback when dropped
-pub struct CallbackHandle<Manager = ClientManager> {
+pub struct CallbackHandle<M: Manager = ClientManager> {
     id: i32,
-    inner: Weak<Inner<Manager>>,
+    inner: Weak<Inner<M>>,
 }
-unsafe impl<Manager> Send for CallbackHandle<Manager> {}
+unsafe impl<M: Manager> Send for CallbackHandle<M> {}
 
-impl<Manager> Drop for CallbackHandle<Manager> {
+impl<M: Manager> Drop for CallbackHandle<M> {
     fn drop(&mut self) {
         if let Some(inner) = self.inner.upgrade() {
             match inner.callbacks.lock() {
@@ -35,10 +35,10 @@ impl<Manager> Drop for CallbackHandle<Manager> {
     }
 }
 
-pub(crate) unsafe fn register_callback<C, F, Manager>(
-    inner: &Arc<Inner<Manager>>,
+pub(crate) unsafe fn register_callback<C, F, M: Manager>(
+    inner: &Arc<Inner<M>>,
     mut f: F,
-) -> CallbackHandle<Manager>
+) -> CallbackHandle<M>
 where
     C: Callback,
     F: FnMut(C) + Send + 'static,
@@ -59,8 +59,8 @@ where
     }
 }
 
-pub(crate) unsafe fn register_call_result<C, F, Manager>(
-    inner: &Arc<Inner<Manager>>,
+pub(crate) unsafe fn register_call_result<C, F, M: Manager>(
+    inner: &Arc<Inner<M>>,
     api_call: sys::SteamAPICall_t,
     _callback_id: i32,
     f: F,

@@ -7,14 +7,14 @@ use super::*;
 use serial_test::serial;
 
 /// Access to the steam user interface
-pub struct UserStats<Manager> {
+pub struct UserStats<M: Manager> {
     pub(crate) user_stats: *mut sys::ISteamUserStats,
-    pub(crate) inner: Arc<Inner<Manager>>,
+    pub(crate) inner: Arc<Inner<M>>,
 }
 
 const CALLBACK_BASE_ID: i32 = 1100;
 
-impl<Manager> UserStats<Manager> {
+impl<M: Manager> UserStats<M> {
     pub fn find_leaderboard<F>(&self, name: &str, cb: F)
     where
         F: FnOnce(Result<Option<Leaderboard>, SteamError>) + 'static + Send,
@@ -427,7 +427,7 @@ impl<Manager> UserStats<Manager> {
     /// and a successful [`UserStatsReceived`](./struct.UserStatsReceived.html) callback processed.
     #[inline]
     #[must_use]
-    pub fn achievement(&self, name: &str) -> stats::AchievementHelper<'_, Manager> {
+    pub fn achievement(&self, name: &str) -> stats::AchievementHelper<'_, M> {
         stats::AchievementHelper {
             name: CString::new(name).unwrap(),
             parent: self,

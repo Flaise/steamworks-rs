@@ -26,22 +26,22 @@
 use crate::networking_types::{
     NetConnectionInfo, NetworkingIdentity, NetworkingMessage, SendFlags,
 };
-use crate::{register_callback, Callback, Inner, SteamError};
+use crate::{register_callback, Callback, Inner, SteamError, Manager};
 use std::ffi::c_void;
 use std::sync::{Arc, Weak};
 
 use steamworks_sys as sys;
 
 /// Access to the steam networking messages interface
-pub struct NetworkingMessages<Manager> {
+pub struct NetworkingMessages<M: Manager> {
     pub(crate) net: *mut sys::ISteamNetworkingMessages,
-    pub(crate) inner: Arc<Inner<Manager>>,
+    pub(crate) inner: Arc<Inner<M>>,
 }
 
-unsafe impl<Manager> Sync for NetworkingMessages<Manager> {}
-unsafe impl<Manager> Send for NetworkingMessages<Manager> {}
+unsafe impl<M: Manager> Sync for NetworkingMessages<M> {}
+unsafe impl<M: Manager> Send for NetworkingMessages<M> {}
 
-impl<Manager: 'static> NetworkingMessages<Manager> {
+impl<M: Manager + 'static> NetworkingMessages<M> {
     /// Sends a message to the specified host.
     ///
     /// If we don't already have a session with that user, a session is implicitly created.
@@ -135,7 +135,7 @@ impl<Manager: 'static> NetworkingMessages<Manager> {
         &self,
         channel: u32,
         batch_size: usize,
-    ) -> Vec<NetworkingMessage<Manager>> {
+    ) -> Vec<NetworkingMessage<M>> {
         let mut buffer = Vec::with_capacity(batch_size);
         unsafe {
             let message_count = sys::SteamAPI_ISteamNetworkingMessages_ReceiveMessagesOnChannel(
@@ -183,7 +183,7 @@ impl<Manager: 'static> NetworkingMessages<Manager> {
     /// ```
     pub fn session_request_callback(
         &self,
-        mut callback: impl FnMut(SessionRequest<Manager>) + Send + 'static,
+        mut callback: impl FnMut(SessionRequest<M>) + Send + 'static,
     ) {
         let builder = SessionRequestBuilder {
             message: self.net,
@@ -223,17 +223,17 @@ impl<Manager: 'static> NetworkingMessages<Manager> {
 /// A helper for creating SessionRequests.
 ///
 /// It's Send and Sync, so it can be moved into the callback.
-struct SessionRequestBuilder<Manager> {
+struct SessionRequestBuilder<M: Manager> {
     message: *mut sys::ISteamNetworkingMessages,
     // Once the builder is in the callback, it creates a cyclic reference, so this has to be Weak
-    inner: Weak<Inner<Manager>>,
+    inner: Weak<Inner<M>>,
 }
 
-unsafe impl<Manager> Sync for SessionRequestBuilder<Manager> {}
-unsafe impl<Manager> Send for SessionRequestBuilder<Manager> {}
+unsafe impl<M: Manager> Sync for SessionRequestBuilder<M> {}
+unsafe impl<M: Manager> Send for SessionRequestBuilder<M> {}
 
-impl<Manager> SessionRequestBuilder<Manager> {
-    pub fn build_request(&self, remote: NetworkingIdentity) -> Option<SessionRequest<Manager>> {
+impl<M: Manager> SessionRequestBuilder<M> {
+    pub fn build_request(&self, remote: NetworkingIdentity) -> Option<SessionRequest<M>> {
         self.inner.upgrade().map(|inner| SessionRequest {
             remote,
             messages: self.message,
@@ -276,16 +276,16 @@ unsafe impl Callback for NetworkingMessagesSessionFailed {
 ///
 /// Use this to accept or reject the connection.
 /// Letting this struct go out of scope will reject the connection.
-pub struct SessionRequest<Manager> {
+pub struct SessionRequest<M: Manager> {
     remote: NetworkingIdentity,
     messages: *mut sys::ISteamNetworkingMessages,
-    _inner: Arc<Inner<Manager>>,
+    _inner: Arc<Inner<M>>,
 }
 
-unsafe impl<Manager> Sync for SessionRequest<Manager> {}
-unsafe impl<Manager> Send for SessionRequest<Manager> {}
+unsafe impl<M: Manager> Sync for SessionRequest<M> {}
+unsafe impl<M: Manager> Send for SessionRequest<M> {}
 
-impl<Manager> SessionRequest<Manager> {
+impl<M: Manager> SessionRequest<M> {
     /// The remote peer requesting the connection.
     pub fn remote(&self) -> &NetworkingIdentity {
         &self.remote
@@ -317,7 +317,7 @@ impl<Manager> SessionRequest<Manager> {
     }
 }
 
-impl<Manager> Drop for SessionRequest<Manager> {
+impl<M: Manager> Drop for SessionRequest<M> {
     fn drop(&mut self) {
         self.reject_inner();
     }

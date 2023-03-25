@@ -16,12 +16,12 @@ use super::*;
 /// client.user_stats().achievement("WIN_THE_GAME").set()?;
 /// # Err(())
 /// ```
-pub struct AchievementHelper<'parent, M> {
+pub struct AchievementHelper<'parent, M: Manager> {
     pub(crate) name: CString,
     pub(crate) parent: &'parent UserStats<M>,
 }
 
-impl<M> AchievementHelper<'_, M> {
+impl<M: Manager> AchievementHelper<'_, M> {
     /// Gets the unlock status of the Achievement.
     ///
     /// This call only modifies Steam's in-memory state so it is quite cheap. To send the unlock

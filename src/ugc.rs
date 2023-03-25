@@ -12,9 +12,9 @@ use std::path::Path;
 
 pub const RESULTS_PER_PAGE: u32 = sys::kNumUGCResultsPerPage as u32;
 
-pub struct UGC<Manager> {
+pub struct UGC<M: Manager> {
     pub(crate) ugc: *mut sys::ISteamUGC,
-    pub(crate) inner: Arc<Inner<Manager>>,
+    pub(crate) inner: Arc<Inner<M>>,
 }
 
 const CALLBACK_BASE_ID: i32 = 3400;
@@ -379,7 +379,7 @@ pub struct InstallInfo {
     pub timestamp: u32,
 }
 
-impl<Manager> UGC<Manager> {
+impl<M: Manager> UGC<M> {
     /// Suspends or resumes all workshop downloads
     pub fn suspend_downloads(&self, suspend: bool) {
         unsafe {
@@ -420,7 +420,7 @@ impl<Manager> UGC<Manager> {
         &self,
         app_id: AppId,
         file_id: PublishedFileId,
-    ) -> UpdateHandle<Manager> {
+    ) -> UpdateHandle<M> {
         unsafe {
             let handle = sys::SteamAPI_ISteamUGC_StartItemUpdate(self.ugc, app_id.0, file_id.0);
             UpdateHandle {
@@ -554,7 +554,7 @@ impl<Manager> UGC<Manager> {
         sort_order: UserListOrder,
         appids: AppIDs,
         page: u32,
-    ) -> Result<UserListQuery<Manager>, CreateQueryError> {
+    ) -> Result<UserListQuery<M>, CreateQueryError> {
         let res = unsafe {
             sys::SteamAPI_ISteamUGC_CreateQueryUserUGCRequest(
                 self.ugc,
@@ -582,7 +582,7 @@ impl<Manager> UGC<Manager> {
     pub fn query_items(
         &self,
         mut items: Vec<PublishedFileId>,
-    ) -> Result<ItemListDetailsQuery<Manager>, CreateQueryError> {
+    ) -> Result<ItemListDetailsQuery<M>, CreateQueryError> {
         debug_assert!(items.len() > 0);
 
         let res = unsafe {
@@ -607,7 +607,7 @@ impl<Manager> UGC<Manager> {
     pub fn query_item(
         &self,
         item: PublishedFileId,
-    ) -> Result<ItemDetailsQuery<Manager>, CreateQueryError> {
+    ) -> Result<ItemDetailsQuery<M>, CreateQueryError> {
         let mut items = vec![item];
 
         let res = unsafe {
@@ -677,14 +677,14 @@ impl UGC<ServerManager> {
 }
 
 /// A handle to update a published item
-pub struct UpdateHandle<Manager> {
+pub struct UpdateHandle<M: Manager> {
     ugc: *mut sys::ISteamUGC,
-    inner: Arc<Inner<Manager>>,
+    inner: Arc<Inner<M>>,
 
     handle: sys::UGCUpdateHandle_t,
 }
 
-impl<Manager> UpdateHandle<Manager> {
+impl<M: Manager> UpdateHandle<M> {
     #[must_use]
     pub fn title(self, title: &str) -> Self {
         unsafe {
@@ -811,7 +811,7 @@ impl<Manager> UpdateHandle<Manager> {
         self
     }
 
-    pub fn submit<F>(self, change_note: Option<&str>, cb: F) -> UpdateWatchHandle<Manager>
+    pub fn submit<F>(self, change_note: Option<&str>, cb: F) -> UpdateWatchHandle<M>
     where
         F: FnOnce(Result<(PublishedFileId, bool), SteamError>) + 'static + Send,
     {
@@ -847,17 +847,17 @@ impl<Manager> UpdateHandle<Manager> {
 }
 
 /// A handle to watch an update of a published item
-pub struct UpdateWatchHandle<Manager> {
+pub struct UpdateWatchHandle<M: Manager> {
     ugc: *mut sys::ISteamUGC,
-    _inner: Arc<Inner<Manager>>,
+    _inner: Arc<Inner<M>>,
 
     handle: sys::UGCUpdateHandle_t,
 }
 
-unsafe impl<Manager> Send for UpdateWatchHandle<Manager> {}
-unsafe impl<Manager> Sync for UpdateWatchHandle<Manager> {}
+unsafe impl<M: Manager> Send for UpdateWatchHandle<M> {}
+unsafe impl<M: Manager> Sync for UpdateWatchHandle<M> {}
 
-impl<Manager> UpdateWatchHandle<Manager> {
+impl<M: Manager> UpdateWatchHandle<M> {
     pub fn progress(&self) -> (UpdateStatus, u64, u64) {
         unsafe {
             let mut progress = 0;
@@ -903,15 +903,15 @@ pub enum UpdateStatus {
 }
 
 /// Query object from `query_user`, to allow for more filtering.
-pub struct UserListQuery<Manager> {
+pub struct UserListQuery<M: Manager> {
     ugc: *mut sys::ISteamUGC,
-    inner: Arc<Inner<Manager>>,
+    inner: Arc<Inner<M>>,
 
     // Note: this is always filled except in `fetch`, where it must be taken
     // to prevent the handle from being dropped when this query is dropped.
     handle: Option<sys::UGCQueryHandle_t>,
 }
-impl<Manager> Drop for UserListQuery<Manager> {
+impl<M: Manager> Drop for UserListQuery<M> {
     fn drop(&mut self) {
         if let Some(handle) = self.handle.as_mut() {
             unsafe {
@@ -920,7 +920,7 @@ impl<Manager> Drop for UserListQuery<Manager> {
         }
     }
 }
-impl<Manager> UserListQuery<Manager> {
+impl<M: Manager> UserListQuery<M> {
     /// Excludes items with a specific tag.
     ///
     /// Panics if `tag` could not be converted to a `CString`.
@@ -1113,15 +1113,15 @@ impl<Manager> UserListQuery<Manager> {
 }
 
 /// Query object from `query_items`, to allow for more filtering.
-pub struct ItemListDetailsQuery<Manager> {
+pub struct ItemListDetailsQuery<M: Manager> {
     ugc: *mut sys::ISteamUGC,
-    inner: Arc<Inner<Manager>>,
+    inner: Arc<Inner<M>>,
 
     // Note: this is always filled except in `fetch`, where it must be taken
     // to prevent the handle from being dropped when this query is dropped.
     handle: Option<sys::UGCQueryHandle_t>,
 }
-impl<Manager> Drop for ItemListDetailsQuery<Manager> {
+impl<M: Manager> Drop for ItemListDetailsQuery<M> {
     fn drop(&mut self) {
         if let Some(handle) = self.handle.as_mut() {
             unsafe {
@@ -1130,7 +1130,7 @@ impl<Manager> Drop for ItemListDetailsQuery<Manager> {
         }
     }
 }
-impl<Manager> ItemListDetailsQuery<Manager> {
+impl<M: Manager> ItemListDetailsQuery<M> {
     /// Sets how to match tags added by `require_tag`. If `true`, then any tag may match. If `false`, all required tags must match.
     pub fn any_required(self, any: bool) -> Self {
         let ok =
@@ -1278,15 +1278,15 @@ impl<Manager> ItemListDetailsQuery<Manager> {
 }
 
 /// Query object from `query_item`, to allow for more filtering.
-pub struct ItemDetailsQuery<Manager> {
+pub struct ItemDetailsQuery<M: Manager> {
     ugc: *mut sys::ISteamUGC,
-    inner: Arc<Inner<Manager>>,
+    inner: Arc<Inner<M>>,
 
     // Note: this is always filled except in `fetch`, where it must be taken
     // to prevent the handle from being dropped when this query is dropped.
     handle: Option<sys::UGCQueryHandle_t>,
 }
-impl<Manager> Drop for ItemDetailsQuery<Manager> {
+impl<M: Manager> Drop for ItemDetailsQuery<M> {
     fn drop(&mut self) {
         if let Some(handle) = self.handle.as_mut() {
             unsafe {
@@ -1295,7 +1295,7 @@ impl<Manager> Drop for ItemDetailsQuery<Manager> {
         }
     }
 }
-impl<Manager> ItemDetailsQuery<Manager> {
+impl<M: Manager> ItemDetailsQuery<M> {
     /// Sets the language to return the title and description in for the items on a pending UGC Query.
     ///
     /// Defaults to "english"

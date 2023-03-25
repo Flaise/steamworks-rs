@@ -6,9 +6,9 @@
 use super::*;
 
 /// Access to the steam networking interface
-pub struct Networking<Manager> {
+pub struct Networking<M: Manager> {
     pub(crate) net: *mut sys::ISteamNetworking,
-    pub(crate) _inner: Arc<Inner<Manager>>,
+    pub(crate) _inner: Arc<Inner<M>>,
 }
 
 /// The method used to send a packet
@@ -31,7 +31,7 @@ pub enum SendType {
     ReliableWithBuffering,
 }
 
-impl<Manager> Networking<Manager> {
+impl<M: Manager> Networking<M> {
     /// Accepts incoming packets from the given user
     ///
     /// Should only be called in response to a `P2PSessionRequest`.

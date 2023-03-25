@@ -11,12 +11,12 @@ impl From<u32> for AppId {
 }
 
 /// Access to the steam apps interface
-pub struct Apps<Manager> {
+pub struct Apps<M: Manager> {
     pub(crate) apps: *mut sys::ISteamApps,
-    pub(crate) _inner: Arc<Inner<Manager>>,
+    pub(crate) _inner: Arc<Inner<M>>,
 }
 
-impl<Manager> Apps<Manager> {
+impl<M: Manager> Apps<M> {
     /// Returns whether the user currently has the app with the given
     /// ID currently installed.
     ///

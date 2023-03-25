@@ -47,12 +47,12 @@ bitflags! {
 }
 
 /// Access to the steam friends interface
-pub struct Friends<Manager> {
+pub struct Friends<M: Manager> {
     pub(crate) friends: *mut sys::ISteamFriends,
-    pub(crate) inner: Arc<Inner<Manager>>,
+    pub(crate) inner: Arc<Inner<M>>,
 }
 
-impl<Manager> Friends<Manager> {
+impl<M: Manager> Friends<M> {
     /// Returns the (display) name of the current user
     pub fn name(&self) -> String {
         unsafe {
@@ -62,7 +62,7 @@ impl<Manager> Friends<Manager> {
         }
     }
 
-    pub fn get_friends(&self, flags: FriendFlags) -> Vec<Friend<Manager>> {
+    pub fn get_friends(&self, flags: FriendFlags) -> Vec<Friend<M>> {
         unsafe {
             let count = sys::SteamAPI_ISteamFriends_GetFriendCount(self.friends, flags.bits() as _);
             if count == -1 {
@@ -86,7 +86,7 @@ impl<Manager> Friends<Manager> {
         }
     }
 
-    pub fn get_friend(&self, friend: SteamId) -> Friend<Manager> {
+    pub fn get_friend(&self, friend: SteamId) -> Friend<M> {
         Friend {
             id: friend,
             friends: self.friends,
@@ -202,19 +202,19 @@ unsafe impl Callback for GameLobbyJoinRequested {
     }
 }
 
-pub struct Friend<Manager> {
+pub struct Friend<M: Manager> {
     id: SteamId,
     friends: *mut sys::ISteamFriends,
-    _inner: Arc<Inner<Manager>>,
+    _inner: Arc<Inner<M>>,
 }
 
-impl<Manager> Debug for Friend<Manager> {
+impl<M: Manager> Debug for Friend<M> {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(f, "Friend({:?})", self.id)
     }
 }
 
-impl<Manager> Friend<Manager> {
+impl<M: Manager> Friend<M> {
     pub fn id(&self) -> SteamId {
         self.id
     }
