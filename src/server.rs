@@ -84,25 +84,14 @@ impl Server {
             }
             sys::SteamAPI_ManualDispatch_Init();
             let server_raw = sys::SteamAPI_SteamGameServer_v014();
-            let server = Arc::new(Inner {
-                _manager: ServerManager { _priv: () },
-                callbacks: Mutex::new(Callbacks {
-                    callbacks: HashMap::new(),
-                    call_results: HashMap::new(),
-                }),
-                networking_sockets_data: Mutex::new(NetworkingSocketsData {
-                    sockets: Default::default(),
-                    independent_connections: Default::default(),
-                    connection_callback: Default::default(),
-                }),
-            });
+            let inner = Arc::new(Inner::new(ServerManager { _priv: () }));
             Ok((
                 Server {
-                    inner: server.clone(),
+                    inner: inner.clone(),
                     server: server_raw,
                 },
                 SingleClient {
-                    inner: server,
+                    inner,
                     _not_sync: PhantomData,
                 },
             ))

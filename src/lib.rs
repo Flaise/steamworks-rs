@@ -16,7 +16,7 @@ use std::ffi::{CStr, CString};
 use std::fmt::{self, Debug, Formatter};
 use std::marker::PhantomData;
 use std::sync::mpsc::Sender;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Weak};
 
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -36,11 +36,13 @@ pub use crate::ugc::*;
 pub use crate::user::*;
 pub use crate::user_stats::*;
 pub use crate::utils::*;
+use crate::inner::Inner;
 
 mod app;
 mod callback;
 mod error;
 mod friends;
+mod inner;
 mod input;
 mod manager;
 mod matchmaking;
@@ -89,12 +91,7 @@ pub struct SingleClient<M: Manager = ClientManager> {
     _not_sync: PhantomData<*mut ()>,
 }
 
-struct Inner<M: Manager> {
-    _manager: M,
-    callbacks: Mutex<Callbacks>,
-    networking_sockets_data: Mutex<NetworkingSocketsData<M>>,
-}
-
+#[derive(Default)]
 struct Callbacks {
     callbacks: HashMap<i32, Box<dyn FnMut(*mut c_void) + Send + 'static>>,
     call_results: HashMap<sys::SteamAPICall_t, Box<dyn FnOnce(*mut c_void, bool) + Send + 'static>>,
@@ -113,8 +110,17 @@ struct NetworkingSocketsData<M: Manager> {
     connection_callback: Weak<CallbackHandle<M>>,
 }
 
-unsafe impl<M: Manager + Send + Sync> Send for Inner<M> {}
-unsafe impl<M: Manager + Send + Sync> Sync for Inner<M> {}
+// Manual implementation because M doesn't implement Default.
+impl<M: Manager> Default for NetworkingSocketsData<M> {
+    fn default() -> Self {
+        NetworkingSocketsData {
+            sockets: Default::default(),
+            independent_connections: Default::default(),
+            connection_callback: Default::default(),
+        }
+    }
+}
+
 unsafe impl<M: Manager + Send + Sync> Send for Client<M> {}
 unsafe impl<M: Manager + Send + Sync> Sync for Client<M> {}
 unsafe impl<M: Manager + Send + Sync> Send for SingleClient<M> {}
@@ -163,24 +169,13 @@ impl Client<ClientManager> {
                 return Err(SteamError::InitFailed);
             }
             sys::SteamAPI_ManualDispatch_Init();
-            let client = Arc::new(Inner {
-                _manager: ClientManager { _priv: () },
-                callbacks: Mutex::new(Callbacks {
-                    callbacks: HashMap::new(),
-                    call_results: HashMap::new(),
-                }),
-                networking_sockets_data: Mutex::new(NetworkingSocketsData {
-                    sockets: Default::default(),
-                    independent_connections: Default::default(),
-                    connection_callback: Default::default(),
-                }),
-            });
+            let inner = Arc::new(Inner::new(ClientManager { _priv: () }));
             Ok((
                 Client {
-                    inner: client.clone(),
+                    inner: inner.clone(),
                 },
                 SingleClient {
-                    inner: client,
+                    inner,
                     _not_sync: PhantomData,
                 },
             ))
@@ -208,6 +203,7 @@ impl Client<ClientManager> {
         Client::init()
     }
 }
+
 impl<M> SingleClient<M>
 where
     M: Manager,
