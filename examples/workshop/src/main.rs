@@ -5,7 +5,7 @@ use steamworks::{Client, ClientManager, PublishedFileId, UGC};
 fn create_item(ugc: &UGC<ClientManager>) {
     // creating a new workshop item
     // make sure you change the appid to the specified game
-    ugc.create_item(480, steamworks::FileType::Community, |create_result| {
+    ugc.create_item(480.into(), steamworks::FileType::Community, |create_result| {
         // handle the result
         match create_result {
             Ok((published_id, needs_to_agree_to_terms)) => {
@@ -17,7 +17,7 @@ fn create_item(ugc: &UGC<ClientManager>) {
                         "You need to agree to the terms of use before you can upload any files"
                     );
                 } else {
-                    println!("Published item with id {}", published_id);
+                    println!("Published item with id {:?}", published_id);
                 }
             }
             Err(e) => {
@@ -46,13 +46,13 @@ fn upload_item_content(ugc: &UGC<ClientManager>, published_id: PublishedFileId) 
     // notes:
     // - once an upload is started, it cannot be cancelled!
     // - content_path is the path to a folder which houses the content you wish to upload
-    let upload_handle = ugc
-        .start_item_update(480, published_id)
-        .content_path("/absolute/path/to/content")
+    let _upload_handle = ugc
+        .start_item_update(480.into(), published_id)
+        .content_path(Path::new("/absolute/path/to/content"))
         .preview_path(Path::new("/absolute/path/to/preview.png"))
         .title("Item title")
         .description("Item description")
-        .tags([])
+        .tags(Vec::<&'static str>::new())
         .visibility(steamworks::PublishedFileVisibility::Public)
         .submit(Some("My changenotes"), |upload_result| {
             // handle the result
@@ -68,7 +68,7 @@ fn upload_item_content(ugc: &UGC<ClientManager>, published_id: PublishedFileId) 
                         // this is the definite indicator that an item was uploaded successfully
                         // the watch handle is NOT an accurate indicator whether the upload is done
                         // the progress on the other hand IS accurate and can simply be used to monitor the upload
-                        println!("Uploaded item with id {}", published_id);
+                        println!("Uploaded item with id {:?}", published_id);
                     }
                 }
                 Err(e) => {
@@ -82,11 +82,11 @@ fn upload_item_content(ugc: &UGC<ClientManager>, published_id: PublishedFileId) 
 
 fn delete_item(ugc: &UGC<ClientManager>, published_id: PublishedFileId) {
     // deleting an item
-    ugc.delete_item(published_id, |delete_result| {
+    ugc.delete_item(published_id, move |delete_result| {
         match delete_result {
             Ok(()) => {
                 // item has been deleted
-                println!("Deleted item with id {}", published_id);
+                println!("Deleted item with id {:?}", published_id);
             }
             Err(e) => {
                 // the item could not be deleted
@@ -139,6 +139,4 @@ fn main() {
     callback_thread
         .join()
         .expect("Failed to join callback thread");
-
-    Ok(())
 }
