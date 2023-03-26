@@ -12,9 +12,9 @@ use std::path::Path;
 
 pub const RESULTS_PER_PAGE: u32 = sys::kNumUGCResultsPerPage as u32;
 
-pub struct UGC<M: Manager> {
+pub struct UGC {
     pub(crate) ugc: *mut sys::ISteamUGC,
-    pub(crate) inner: Arc<Inner<M>>,
+    pub(crate) inner: Arc<Inner>,
 }
 
 const CALLBACK_BASE_ID: i32 = 3400;
@@ -379,7 +379,7 @@ pub struct InstallInfo {
     pub timestamp: u32,
 }
 
-impl<M: Manager> UGC<M> {
+impl UGC {
     /// Suspends or resumes all workshop downloads
     pub fn suspend_downloads(&self, suspend: bool) {
         unsafe {
@@ -394,7 +394,7 @@ impl<M: Manager> UGC<M> {
     {
         unsafe {
             let api_call = sys::SteamAPI_ISteamUGC_CreateItem(self.ugc, app_id.0, file_type.into());
-            register_call_result::<sys::CreateItemResult_t, _, _>(
+            register_call_result::<sys::CreateItemResult_t, _>(
                 &self.inner,
                 api_call,
                 CALLBACK_BASE_ID + 3,
@@ -420,7 +420,7 @@ impl<M: Manager> UGC<M> {
         &self,
         app_id: AppId,
         file_id: PublishedFileId,
-    ) -> UpdateHandle<M> {
+    ) -> UpdateHandle {
         unsafe {
             let handle = sys::SteamAPI_ISteamUGC_StartItemUpdate(self.ugc, app_id.0, file_id.0);
             UpdateHandle {
@@ -439,7 +439,7 @@ impl<M: Manager> UGC<M> {
     {
         unsafe {
             let api_call = sys::SteamAPI_ISteamUGC_SubscribeItem(self.ugc, published_file_id.0);
-            register_call_result::<sys::RemoteStorageSubscribePublishedFileResult_t, _, _>(
+            register_call_result::<sys::RemoteStorageSubscribePublishedFileResult_t, _>(
                 &self.inner,
                 api_call,
                 CALLBACK_REMOTE_STORAGE_BASE_ID + 13,
@@ -462,7 +462,7 @@ impl<M: Manager> UGC<M> {
     {
         unsafe {
             let api_call = sys::SteamAPI_ISteamUGC_UnsubscribeItem(self.ugc, published_file_id.0);
-            register_call_result::<sys::RemoteStorageUnsubscribePublishedFileResult_t, _, _>(
+            register_call_result::<sys::RemoteStorageUnsubscribePublishedFileResult_t, _>(
                 &self.inner,
                 api_call,
                 CALLBACK_REMOTE_STORAGE_BASE_ID + 15,
@@ -554,7 +554,7 @@ impl<M: Manager> UGC<M> {
         sort_order: UserListOrder,
         appids: AppIDs,
         page: u32,
-    ) -> Result<UserListQuery<M>, CreateQueryError> {
+    ) -> Result<UserListQuery, CreateQueryError> {
         let res = unsafe {
             sys::SteamAPI_ISteamUGC_CreateQueryUserUGCRequest(
                 self.ugc,
@@ -582,7 +582,7 @@ impl<M: Manager> UGC<M> {
     pub fn query_items(
         &self,
         mut items: Vec<PublishedFileId>,
-    ) -> Result<ItemListDetailsQuery<M>, CreateQueryError> {
+    ) -> Result<ItemListDetailsQuery, CreateQueryError> {
         debug_assert!(items.len() > 0);
 
         let res = unsafe {
@@ -607,7 +607,7 @@ impl<M: Manager> UGC<M> {
     pub fn query_item(
         &self,
         item: PublishedFileId,
-    ) -> Result<ItemDetailsQuery<M>, CreateQueryError> {
+    ) -> Result<ItemDetailsQuery, CreateQueryError> {
         let mut items = vec![item];
 
         let res = unsafe {
@@ -636,7 +636,7 @@ impl<M: Manager> UGC<M> {
     {
         unsafe {
             let api_call = sys::SteamAPI_ISteamUGC_DeleteItem(self.ugc, published_file_id.0);
-            register_call_result::<sys::DownloadItemResult_t, _, _>(
+            register_call_result::<sys::DownloadItemResult_t, _>(
                 &self.inner,
                 api_call,
                 CALLBACK_REMOTE_STORAGE_BASE_ID + 17,
@@ -656,7 +656,7 @@ impl<M: Manager> UGC<M> {
     }
 }
 
-impl UGC<ServerManager> {
+impl UGC {
     /// Initialize this UGC interface for a Steam game server.
     ///
     /// You should pass in the Workshop depot, you can find this on SteamDB. It's usually just the app ID.
@@ -677,14 +677,14 @@ impl UGC<ServerManager> {
 }
 
 /// A handle to update a published item
-pub struct UpdateHandle<M: Manager> {
+pub struct UpdateHandle {
     ugc: *mut sys::ISteamUGC,
-    inner: Arc<Inner<M>>,
+    inner: Arc<Inner>,
 
     handle: sys::UGCUpdateHandle_t,
 }
 
-impl<M: Manager> UpdateHandle<M> {
+impl UpdateHandle {
     #[must_use]
     pub fn title(self, title: &str) -> Self {
         unsafe {
@@ -811,7 +811,7 @@ impl<M: Manager> UpdateHandle<M> {
         self
     }
 
-    pub fn submit<F>(self, change_note: Option<&str>, cb: F) -> UpdateWatchHandle<M>
+    pub fn submit<F>(self, change_note: Option<&str>, cb: F) -> UpdateWatchHandle
     where
         F: FnOnce(Result<(PublishedFileId, bool), SteamError>) + 'static + Send,
     {
@@ -820,7 +820,7 @@ impl<M: Manager> UpdateHandle<M> {
             let change_note = change_note.and_then(|v| CString::new(v).ok());
             let note = change_note.as_ref().map_or(ptr::null(), |v| v.as_ptr());
             let api_call = sys::SteamAPI_ISteamUGC_SubmitItemUpdate(self.ugc, self.handle, note);
-            register_call_result::<sys::SubmitItemUpdateResult_t, _, _>(
+            register_call_result::<sys::SubmitItemUpdateResult_t, _>(
                 &self.inner,
                 api_call,
                 CALLBACK_BASE_ID + 4,
@@ -847,17 +847,17 @@ impl<M: Manager> UpdateHandle<M> {
 }
 
 /// A handle to watch an update of a published item
-pub struct UpdateWatchHandle<M: Manager> {
+pub struct UpdateWatchHandle {
     ugc: *mut sys::ISteamUGC,
-    _inner: Arc<Inner<M>>,
+    _inner: Arc<Inner>,
 
     handle: sys::UGCUpdateHandle_t,
 }
 
-unsafe impl<M: Manager> Send for UpdateWatchHandle<M> {}
-unsafe impl<M: Manager> Sync for UpdateWatchHandle<M> {}
+unsafe impl Send for UpdateWatchHandle {}
+unsafe impl Sync for UpdateWatchHandle {}
 
-impl<M: Manager> UpdateWatchHandle<M> {
+impl UpdateWatchHandle {
     pub fn progress(&self) -> (UpdateStatus, u64, u64) {
         unsafe {
             let mut progress = 0;
@@ -903,15 +903,15 @@ pub enum UpdateStatus {
 }
 
 /// Query object from `query_user`, to allow for more filtering.
-pub struct UserListQuery<M: Manager> {
+pub struct UserListQuery {
     ugc: *mut sys::ISteamUGC,
-    inner: Arc<Inner<M>>,
+    inner: Arc<Inner>,
 
     // Note: this is always filled except in `fetch`, where it must be taken
     // to prevent the handle from being dropped when this query is dropped.
     handle: Option<sys::UGCQueryHandle_t>,
 }
-impl<M: Manager> Drop for UserListQuery<M> {
+impl Drop for UserListQuery {
     fn drop(&mut self) {
         if let Some(handle) = self.handle.as_mut() {
             unsafe {
@@ -920,7 +920,8 @@ impl<M: Manager> Drop for UserListQuery<M> {
         }
     }
 }
-impl<M: Manager> UserListQuery<M> {
+
+impl UserListQuery {
     /// Excludes items with a specific tag.
     ///
     /// Panics if `tag` could not be converted to a `CString`.
@@ -1048,7 +1049,7 @@ impl<M: Manager> UserListQuery<M> {
 
         unsafe {
             let api_call = sys::SteamAPI_ISteamUGC_SendQueryUGCRequest(ugc, handle);
-            register_call_result::<sys::SteamUGCQueryCompleted_t, _, _>(
+            register_call_result::<sys::SteamUGCQueryCompleted_t, _>(
                 &inner,
                 api_call,
                 CALLBACK_BASE_ID + 1,
@@ -1113,15 +1114,16 @@ impl<M: Manager> UserListQuery<M> {
 }
 
 /// Query object from `query_items`, to allow for more filtering.
-pub struct ItemListDetailsQuery<M: Manager> {
+pub struct ItemListDetailsQuery {
     ugc: *mut sys::ISteamUGC,
-    inner: Arc<Inner<M>>,
+    inner: Arc<Inner>,
 
     // Note: this is always filled except in `fetch`, where it must be taken
     // to prevent the handle from being dropped when this query is dropped.
     handle: Option<sys::UGCQueryHandle_t>,
 }
-impl<M: Manager> Drop for ItemListDetailsQuery<M> {
+
+impl Drop for ItemListDetailsQuery {
     fn drop(&mut self) {
         if let Some(handle) = self.handle.as_mut() {
             unsafe {
@@ -1130,7 +1132,8 @@ impl<M: Manager> Drop for ItemListDetailsQuery<M> {
         }
     }
 }
-impl<M: Manager> ItemListDetailsQuery<M> {
+
+impl ItemListDetailsQuery {
     /// Sets how to match tags added by `require_tag`. If `true`, then any tag may match. If `false`, all required tags must match.
     pub fn any_required(self, any: bool) -> Self {
         let ok =
@@ -1232,7 +1235,7 @@ impl<M: Manager> ItemListDetailsQuery<M> {
 
         unsafe {
             let api_call = sys::SteamAPI_ISteamUGC_SendQueryUGCRequest(ugc, handle);
-            register_call_result::<sys::SteamUGCQueryCompleted_t, _, _>(
+            register_call_result::<sys::SteamUGCQueryCompleted_t, _>(
                 &inner,
                 api_call,
                 CALLBACK_BASE_ID + 1,
@@ -1278,15 +1281,16 @@ impl<M: Manager> ItemListDetailsQuery<M> {
 }
 
 /// Query object from `query_item`, to allow for more filtering.
-pub struct ItemDetailsQuery<M: Manager> {
+pub struct ItemDetailsQuery {
     ugc: *mut sys::ISteamUGC,
-    inner: Arc<Inner<M>>,
+    inner: Arc<Inner>,
 
     // Note: this is always filled except in `fetch`, where it must be taken
     // to prevent the handle from being dropped when this query is dropped.
     handle: Option<sys::UGCQueryHandle_t>,
 }
-impl<M: Manager> Drop for ItemDetailsQuery<M> {
+
+impl Drop for ItemDetailsQuery {
     fn drop(&mut self) {
         if let Some(handle) = self.handle.as_mut() {
             unsafe {
@@ -1295,7 +1299,8 @@ impl<M: Manager> Drop for ItemDetailsQuery<M> {
         }
     }
 }
-impl<M: Manager> ItemDetailsQuery<M> {
+
+impl ItemDetailsQuery {
     /// Sets the language to return the title and description in for the items on a pending UGC Query.
     ///
     /// Defaults to "english"
@@ -1380,7 +1385,7 @@ impl<M: Manager> ItemDetailsQuery<M> {
 
         unsafe {
             let api_call = sys::SteamAPI_ISteamUGC_SendQueryUGCRequest(ugc, handle);
-            register_call_result::<sys::SteamUGCQueryCompleted_t, _, _>(
+            register_call_result::<sys::SteamUGCQueryCompleted_t, _>(
                 &inner,
                 api_call,
                 CALLBACK_BASE_ID + 1,

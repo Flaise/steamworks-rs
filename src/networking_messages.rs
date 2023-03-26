@@ -26,22 +26,22 @@
 use crate::networking_types::{
     NetConnectionInfo, NetworkingIdentity, NetworkingMessage, SendFlags,
 };
-use crate::{register_callback, Callback, Inner, SteamError, Manager};
+use crate::{register_callback, Callback, Inner, SteamError};
 use std::ffi::c_void;
 use std::sync::{Arc, Weak};
 
 use steamworks_sys as sys;
 
 /// Access to the steam networking messages interface
-pub struct NetworkingMessages<M: Manager> {
+pub struct NetworkingMessages {
     pub(crate) net: *mut sys::ISteamNetworkingMessages,
-    pub(crate) inner: Arc<Inner<M>>,
+    pub(crate) inner: Arc<Inner>,
 }
 
-unsafe impl<M: Manager> Sync for NetworkingMessages<M> {}
-unsafe impl<M: Manager> Send for NetworkingMessages<M> {}
+unsafe impl Sync for NetworkingMessages {}
+unsafe impl Send for NetworkingMessages {}
 
-impl<M: Manager + 'static> NetworkingMessages<M> {
+impl NetworkingMessages {
     /// Sends a message to the specified host.
     ///
     /// If we don't already have a session with that user, a session is implicitly created.
@@ -135,7 +135,7 @@ impl<M: Manager + 'static> NetworkingMessages<M> {
         &self,
         channel: u32,
         batch_size: usize,
-    ) -> Vec<NetworkingMessage<M>> {
+    ) -> Vec<NetworkingMessage> {
         let mut buffer = Vec::with_capacity(batch_size);
         unsafe {
             let message_count = sys::SteamAPI_ISteamNetworkingMessages_ReceiveMessagesOnChannel(
@@ -183,7 +183,7 @@ impl<M: Manager + 'static> NetworkingMessages<M> {
     /// ```
     pub fn session_request_callback(
         &self,
-        mut callback: impl FnMut(SessionRequest<M>) + Send + 'static,
+        mut callback: impl FnMut(SessionRequest) + Send + 'static,
     ) {
         let builder = SessionRequestBuilder {
             message: self.net,
@@ -223,17 +223,17 @@ impl<M: Manager + 'static> NetworkingMessages<M> {
 /// A helper for creating SessionRequests.
 ///
 /// It's Send and Sync, so it can be moved into the callback.
-struct SessionRequestBuilder<M: Manager> {
+struct SessionRequestBuilder {
     message: *mut sys::ISteamNetworkingMessages,
     // Once the builder is in the callback, it creates a cyclic reference, so this has to be Weak
-    inner: Weak<Inner<M>>,
+    inner: Weak<Inner>,
 }
 
-unsafe impl<M: Manager> Sync for SessionRequestBuilder<M> {}
-unsafe impl<M: Manager> Send for SessionRequestBuilder<M> {}
+unsafe impl Sync for SessionRequestBuilder {}
+unsafe impl Send for SessionRequestBuilder {}
 
-impl<M: Manager> SessionRequestBuilder<M> {
-    pub fn build_request(&self, remote: NetworkingIdentity) -> Option<SessionRequest<M>> {
+impl SessionRequestBuilder {
+    pub fn build_request(&self, remote: NetworkingIdentity) -> Option<SessionRequest> {
         self.inner.upgrade().map(|inner| SessionRequest {
             remote,
             messages: self.message,
@@ -276,16 +276,16 @@ unsafe impl Callback for NetworkingMessagesSessionFailed {
 ///
 /// Use this to accept or reject the connection.
 /// Letting this struct go out of scope will reject the connection.
-pub struct SessionRequest<M: Manager> {
+pub struct SessionRequest {
     remote: NetworkingIdentity,
     messages: *mut sys::ISteamNetworkingMessages,
-    _inner: Arc<Inner<M>>,
+    _inner: Arc<Inner>,
 }
 
-unsafe impl<M: Manager> Sync for SessionRequest<M> {}
-unsafe impl<M: Manager> Send for SessionRequest<M> {}
+unsafe impl Sync for SessionRequest {}
+unsafe impl Send for SessionRequest {}
 
-impl<M: Manager> SessionRequest<M> {
+impl SessionRequest {
     /// The remote peer requesting the connection.
     pub fn remote(&self) -> &NetworkingIdentity {
         &self.remote
@@ -317,7 +317,7 @@ impl<M: Manager> SessionRequest<M> {
     }
 }
 
-impl<M: Manager> Drop for SessionRequest<M> {
+impl Drop for SessionRequest {
     fn drop(&mut self) {
         self.reject_inner();
     }

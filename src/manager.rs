@@ -1,17 +1,17 @@
 use steamworks_sys as sys;
 
 /// Used to separate client and game server modes
-pub unsafe trait Manager {
-    unsafe fn get_pipe() -> sys::HSteamPipe;
+pub(crate) trait Manager {
+    unsafe fn get_pipe(&self) -> sys::HSteamPipe;
 }
 
 /// Manages keeping the steam api active for clients
-pub struct ClientManager {
+pub(crate) struct ClientManager {
     pub(crate) _priv: (),
 }
 
-unsafe impl Manager for ClientManager {
-    unsafe fn get_pipe() -> sys::HSteamPipe {
+impl Manager for ClientManager {
+    unsafe fn get_pipe(&self) -> sys::HSteamPipe {
         sys::SteamAPI_GetHSteamPipe()
     }
 }
@@ -25,12 +25,12 @@ impl Drop for ClientManager {
 }
 
 /// Manages keeping the steam api active for servers
-pub struct ServerManager {
+pub(crate) struct ServerManager {
     pub(crate) _priv: (),
 }
 
-unsafe impl Manager for ServerManager {
-    unsafe fn get_pipe() -> sys::HSteamPipe {
+impl Manager for ServerManager {
+    unsafe fn get_pipe(&self) -> sys::HSteamPipe {
         sys::SteamGameServer_GetHSteamPipe()
     }
 }

@@ -3,10 +3,10 @@ use super::*;
 use serial_test::serial;
 
 /// Access to the steam remote storage interface
-pub struct RemoteStorage<M: Manager> {
+pub struct RemoteStorage {
     pub(crate) rs: *mut sys::ISteamRemoteStorage,
     pub(crate) util: *mut sys::ISteamUtils,
-    pub(crate) inner: Arc<Inner<M>>,
+    pub(crate) inner: Arc<Inner>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -40,7 +40,7 @@ impl Into<sys::ERemoteStoragePublishedFileVisibility> for PublishedFileVisibilit
     }
 }
 
-impl<M: Manager> Clone for RemoteStorage<M> {
+impl Clone for RemoteStorage {
     fn clone(&self) -> Self {
         RemoteStorage {
             inner: self.inner.clone(),
@@ -50,7 +50,7 @@ impl<M: Manager> Clone for RemoteStorage<M> {
     }
 }
 
-impl<M: Manager> RemoteStorage<M> {
+impl RemoteStorage {
     /// Toggles whether the steam cloud is enabled for the application
     pub fn set_cloud_enabled_for_app(&self, enabled: bool) {
         unsafe {
@@ -102,7 +102,7 @@ impl<M: Manager> RemoteStorage<M> {
     /// Returns a handle to a steam cloud file
     ///
     /// The file does not have to exist.
-    pub fn file(&self, name: &str) -> SteamFile<M> {
+    pub fn file(&self, name: &str) -> SteamFile {
         SteamFile {
             rs: self.rs,
             util: self.util,
@@ -113,14 +113,14 @@ impl<M: Manager> RemoteStorage<M> {
 }
 
 /// A handle for a possible steam cloud file
-pub struct SteamFile<M: Manager> {
+pub struct SteamFile {
     pub(crate) rs: *mut sys::ISteamRemoteStorage,
     pub(crate) util: *mut sys::ISteamUtils,
-    pub(crate) _inner: Arc<Inner<M>>,
+    pub(crate) _inner: Arc<Inner>,
     name: CString,
 }
 
-impl<M: Manager> SteamFile<M> {
+impl SteamFile {
     /// Deletes the file locally and remotely.
     ///
     /// Returns whether a file was actually deleted
@@ -149,7 +149,7 @@ impl<M: Manager> SteamFile<M> {
         unsafe { sys::SteamAPI_ISteamRemoteStorage_GetFileTimestamp(self.rs, self.name.as_ptr()) }
     }
 
-    pub fn write(self) -> SteamFileWriter<M> {
+    pub fn write(self) -> SteamFileWriter {
         unsafe {
             let handle =
                 sys::SteamAPI_ISteamRemoteStorage_FileWriteStreamOpen(self.rs, self.name.as_ptr());
@@ -157,7 +157,7 @@ impl<M: Manager> SteamFile<M> {
         }
     }
 
-    pub fn read(self) -> SteamFileReader<M> {
+    pub fn read(self) -> SteamFileReader {
         unsafe {
             SteamFileReader {
                 offset: 0,
@@ -168,13 +168,14 @@ impl<M: Manager> SteamFile<M> {
         }
     }
 }
+
 /// A write handle for a steam cloud file
-pub struct SteamFileWriter<M: Manager> {
-    file: SteamFile<M>,
+pub struct SteamFileWriter {
+    file: SteamFile,
     handle: sys::UGCFileWriteStreamHandle_t,
 }
 
-impl<M: Manager> std::io::Write for SteamFileWriter<M> {
+impl std::io::Write for SteamFileWriter {
     fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
         unsafe {
             if sys::SteamAPI_ISteamRemoteStorage_FileWriteStreamWriteChunk(
@@ -195,7 +196,7 @@ impl<M: Manager> std::io::Write for SteamFileWriter<M> {
     }
 }
 
-impl<M: Manager> Drop for SteamFileWriter<M> {
+impl Drop for SteamFileWriter {
     fn drop(&mut self) {
         unsafe {
             sys::SteamAPI_ISteamRemoteStorage_FileWriteStreamClose(self.file.rs, self.handle);
@@ -204,13 +205,13 @@ impl<M: Manager> Drop for SteamFileWriter<M> {
 }
 
 /// A read handle for a steam cloud file
-pub struct SteamFileReader<M: Manager> {
-    file: SteamFile<M>,
+pub struct SteamFileReader {
+    file: SteamFile,
     offset: usize,
     size: usize,
 }
 
-impl<M: Manager> std::io::Read for SteamFileReader<M> {
+impl std::io::Read for SteamFileReader {
     fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
         use std::cmp::min;
         if buf.is_empty() || self.size - self.offset == 0 {
@@ -263,7 +264,7 @@ impl<M: Manager> std::io::Read for SteamFileReader<M> {
     }
 }
 
-impl<M: Manager> std::io::Seek for SteamFileReader<M> {
+impl std::io::Seek for SteamFileReader {
     fn seek(&mut self, pos: std::io::SeekFrom) -> std::io::Result<u64> {
         match pos {
             std::io::SeekFrom::Current(o) => {

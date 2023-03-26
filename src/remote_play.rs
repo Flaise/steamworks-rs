@@ -1,11 +1,11 @@
 use super::*;
 
-pub struct RemotePlay<M: Manager> {
+pub struct RemotePlay {
     pub(crate) rp: *mut sys::ISteamRemotePlay,
-    pub(crate) inner: Arc<Inner<M>>,
+    pub(crate) inner: Arc<Inner>,
 }
 
-impl<M: Manager> Clone for RemotePlay<M> {
+impl Clone for RemotePlay {
     fn clone(&self) -> Self {
         RemotePlay {
             inner: self.inner.clone(),
@@ -14,9 +14,9 @@ impl<M: Manager> Clone for RemotePlay<M> {
     }
 }
 
-impl<M: Manager> RemotePlay<M> {
+impl RemotePlay {
     /// Return a list of all active Remote Play sessions
-    pub fn sessions(&self) -> Vec<RemotePlaySession<M>> {
+    pub fn sessions(&self) -> Vec<RemotePlaySession> {
         unsafe {
             let count = sys::SteamAPI_ISteamRemotePlay_GetSessionCount(self.rp);
             let mut sessions = Vec::with_capacity(count as usize);
@@ -37,7 +37,7 @@ impl<M: Manager> RemotePlay<M> {
     }
 
     /// Get a remote play session from a session ID. The session may or may not be valid or active
-    pub fn session(&self, session: RemotePlaySessionId) -> RemotePlaySession<M> {
+    pub fn session(&self, session: RemotePlaySessionId) -> RemotePlaySession {
         RemotePlaySession {
             session,
             rp: self.rp,
@@ -68,10 +68,10 @@ impl RemotePlaySessionId {
     }
 }
 
-pub struct RemotePlaySession<M: Manager> {
+pub struct RemotePlaySession {
     session: RemotePlaySessionId,
     pub(crate) rp: *mut sys::ISteamRemotePlay,
-    pub(crate) _inner: Arc<Inner<M>>,
+    pub(crate) _inner: Arc<Inner>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -82,7 +82,7 @@ pub enum SteamDeviceFormFactor {
     TV,
 }
 
-impl<M: Manager> RemotePlaySession<M> {
+impl RemotePlaySession {
     /// Get the user associated with this Remote Play session. This is either the logged in user or a friend when Remote
     /// Playing Together.
     pub fn user(&self) -> SteamId {

@@ -2,7 +2,7 @@ use crate::networking_sockets::NetConnection;
 use crate::networking_types::{
     NetConnectionEnd, NetConnectionStatusChanged, NetworkingConnectionState,
 };
-use crate::{register_callback, CallbackHandle, Inner, Manager};
+use crate::{register_callback, CallbackHandle, Inner};
 use std::sync::{Arc, Weak};
 use steamworks_sys as sys;
 use sys::ISteamNetworkingSockets;
@@ -10,10 +10,10 @@ use sys::ISteamNetworkingSockets;
 /// All independent connections (to a remote host) and listening sockets share the same Callback for
 /// `NetConnectionStatusChangedCallback`. This function either returns the existing handle, or creates a new
 /// handler.
-pub(crate) fn get_or_create_connection_callback<M: Manager + 'static>(
-    inner: Arc<Inner<M>>,
+pub(crate) fn get_or_create_connection_callback(
+    inner: Arc<Inner>,
     sockets: *mut ISteamNetworkingSockets,
-) -> Arc<CallbackHandle<M>> {
+) -> Arc<CallbackHandle> {
     let mut network_socket_data = inner.networking_sockets_data.lock().unwrap();
     if let Some(callback) = network_socket_data.connection_callback.upgrade() {
         callback
@@ -34,15 +34,15 @@ pub(crate) fn get_or_create_connection_callback<M: Manager + 'static>(
     }
 }
 
-pub(crate) struct ConnectionCallbackHandler<M: Manager> {
-    inner: Weak<Inner<M>>,
+pub(crate) struct ConnectionCallbackHandler {
+    inner: Weak<Inner>,
     sockets: *mut ISteamNetworkingSockets,
 }
 
-unsafe impl<M: Manager> Send for ConnectionCallbackHandler<M> {}
-unsafe impl<M: Manager> Sync for ConnectionCallbackHandler<M> {}
+unsafe impl Send for ConnectionCallbackHandler {}
+unsafe impl Sync for ConnectionCallbackHandler {}
 
-impl<M: Manager + 'static> ConnectionCallbackHandler<M> {
+impl ConnectionCallbackHandler {
     pub(crate) fn callback(&self, event: NetConnectionStatusChanged) {
         if let Some(socket) = event.connection_info.listen_socket() {
             self.listen_socket_callback(socket, event);

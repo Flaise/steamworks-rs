@@ -7,14 +7,14 @@ use super::*;
 use serial_test::serial;
 
 /// Access to the steam user interface
-pub struct UserStats<M: Manager> {
+pub struct UserStats {
     pub(crate) user_stats: *mut sys::ISteamUserStats,
-    pub(crate) inner: Arc<Inner<M>>,
+    pub(crate) inner: Arc<Inner>,
 }
 
 const CALLBACK_BASE_ID: i32 = 1100;
 
-impl<M: Manager> UserStats<M> {
+impl UserStats {
     pub fn find_leaderboard<F>(&self, name: &str, cb: F)
     where
         F: FnOnce(Result<Option<Leaderboard>, SteamError>) + 'static + Send,
@@ -25,7 +25,7 @@ impl<M: Manager> UserStats<M> {
                 self.user_stats,
                 name.as_ptr() as *const _,
             );
-            register_call_result::<sys::LeaderboardFindResult_t, _, _>(
+            register_call_result::<sys::LeaderboardFindResult_t, _>(
                 &self.inner,
                 api_call,
                 CALLBACK_BASE_ID + 4,
@@ -83,7 +83,7 @@ impl<M: Manager> UserStats<M> {
                 sort_method,
                 display_type,
             );
-            register_call_result::<sys::LeaderboardFindResult_t, _, _>(
+            register_call_result::<sys::LeaderboardFindResult_t, _>(
                 &self.inner,
                 api_call,
                 CALLBACK_BASE_ID + 4,
@@ -129,7 +129,7 @@ impl<M: Manager> UserStats<M> {
                 details.as_ptr(),
                 details.len() as _,
             );
-            register_call_result::<sys::LeaderboardScoreUploaded_t, _, _>(
+            register_call_result::<sys::LeaderboardScoreUploaded_t, _>(
                 &self.inner,
                 api_call,
                 CALLBACK_BASE_ID + 6,
@@ -184,7 +184,7 @@ impl<M: Manager> UserStats<M> {
                 end as _,
             );
             let user_stats = self.user_stats as isize;
-            register_call_result::<sys::LeaderboardScoresDownloaded_t, _, _>(
+            register_call_result::<sys::LeaderboardScoresDownloaded_t, _>(
                 &self.inner,
                 api_call,
                 CALLBACK_BASE_ID + 5,
@@ -427,7 +427,7 @@ impl<M: Manager> UserStats<M> {
     /// and a successful [`UserStatsReceived`](./struct.UserStatsReceived.html) callback processed.
     #[inline]
     #[must_use]
-    pub fn achievement(&self, name: &str) -> stats::AchievementHelper<'_, M> {
+    pub fn achievement(&self, name: &str) -> stats::AchievementHelper {
         stats::AchievementHelper {
             name: CString::new(name).unwrap(),
             parent: self,

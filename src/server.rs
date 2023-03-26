@@ -1,4 +1,6 @@
 use super::*;
+use crate::manager::ServerManager;
+
 #[cfg(test)]
 use serial_test::serial;
 use std::net::Ipv4Addr;
@@ -9,7 +11,7 @@ use std::net::Ipv4Addr;
 /// servers can use.
 #[derive(Clone)]
 pub struct Server {
-    inner: Arc<Inner<ServerManager>>,
+    inner: Arc<Inner>,
     server: *mut sys::ISteamGameServer,
 }
 
@@ -61,7 +63,7 @@ impl Server {
         query_port: u16,
         server_mode: ServerMode,
         version: &str,
-    ) -> SResult<(Server, SingleClient<ServerManager>)> {
+    ) -> SResult<(Server, SingleClient)> {
         unsafe {
             let version = CString::new(version).unwrap();
             let raw_ip: u32 = ip.into();
@@ -103,7 +105,7 @@ impl Server {
     ///
     /// The callback will be run on the thread that `run_callbacks`
     /// is called when the event arrives.
-    pub fn register_callback<C, F>(&self, f: F) -> CallbackHandle<ServerManager>
+    pub fn register_callback<C, F>(&self, f: F) -> CallbackHandle
     where
         C: Callback,
         F: FnMut(C) + 'static + Send,
@@ -251,7 +253,7 @@ impl Server {
         }
     }
 
-    /// If your game is a "mod," pass the string that identifies it.  The default is an empty
+    /// If your game is a "mod", pass the string that identifies it.  The default is an empty
     /// string, meaning this application is the original game, not a mod.
     pub fn set_mod_dir(&self, mod_dir: &str) {
         let mod_dir = CString::new(mod_dir).unwrap();
@@ -288,7 +290,7 @@ impl Server {
     /// Returns an accessor to the steam UGC interface (steam workshop)
     ///
     /// **For this to work properly, you need to call `UGC::init_for_game_server()`!**
-    pub fn ugc(&self) -> UGC<ServerManager> {
+    pub fn ugc(&self) -> UGC {
         unsafe {
             let ugc = sys::SteamAPI_SteamGameServerUGC_v016();
             debug_assert!(!ugc.is_null());
