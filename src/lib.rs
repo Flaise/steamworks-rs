@@ -118,13 +118,6 @@ pub fn restart_app_if_necessary(app_id: AppId) -> bool {
     unsafe { sys::SteamAPI_RestartAppIfNecessary(app_id.0) }
 }
 
-fn static_assert_send<T: Send>() {}
-fn static_assert_sync<T>()
-where
-    T: Sync,
-{
-}
-
 impl Client {
     /// Attempts to initialize the steamworks api and returns
     /// a client to access the rest of the api.
@@ -145,15 +138,12 @@ impl Client {
     /// * The user doesn't own a license for the game.
     /// * The app ID isn't completely set up.
     pub fn init() -> SResult<(Client, SingleClient)> {
-        static_assert_send::<Client>(); // might not be necessary anymore
-        static_assert_sync::<Client>();
-        static_assert_send::<SingleClient>();
         unsafe {
             if !sys::SteamAPI_Init() {
                 return Err(SteamError::InitFailed);
             }
             sys::SteamAPI_ManualDispatch_Init();
-            let inner = Arc::new(Inner::new(ClientManager { _priv: () }));
+            let inner = Arc::new(Inner::new(ClientManager));
             Ok((
                 Client {
                     inner: inner.clone(),

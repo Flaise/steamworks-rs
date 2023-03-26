@@ -6,9 +6,7 @@ pub(crate) trait Manager {
 }
 
 /// Manages keeping the steam api active for clients
-pub(crate) struct ClientManager {
-    pub(crate) _priv: (),
-}
+pub(crate) struct ClientManager;
 
 impl Manager for ClientManager {
     unsafe fn get_pipe(&self) -> sys::HSteamPipe {
@@ -25,9 +23,7 @@ impl Drop for ClientManager {
 }
 
 /// Manages keeping the steam api active for servers
-pub(crate) struct ServerManager {
-    pub(crate) _priv: (),
-}
+pub(crate) struct ServerManager;
 
 impl Manager for ServerManager {
     unsafe fn get_pipe(&self) -> sys::HSteamPipe {

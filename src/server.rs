@@ -86,7 +86,7 @@ impl Server {
             }
             sys::SteamAPI_ManualDispatch_Init();
             let server_raw = sys::SteamAPI_SteamGameServer_v014();
-            let inner = Arc::new(Inner::new(ServerManager { _priv: () }));
+            let inner = Arc::new(Inner::new(ServerManager));
             Ok((
                 Server {
                     inner: inner.clone(),
