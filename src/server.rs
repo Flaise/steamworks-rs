@@ -372,22 +372,3 @@ fn test() {
 
     server.end_authentication_session(id);
 }
-
-/// Manages keeping the steam api active for servers
-pub struct ServerManager {
-    _priv: (),
-}
-
-unsafe impl Manager for ServerManager {
-    unsafe fn get_pipe() -> sys::HSteamPipe {
-        sys::SteamGameServer_GetHSteamPipe()
-    }
-}
-
-impl Drop for ServerManager {
-    fn drop(&mut self) {
-        unsafe {
-            sys::SteamGameServer_Shutdown();
-        }
-    }
-}

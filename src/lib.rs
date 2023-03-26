@@ -26,6 +26,7 @@ pub use crate::callback::*;
 pub use crate::error::*;
 pub use crate::friends::*;
 pub use crate::input::*;
+pub use crate::manager::*;
 pub use crate::matchmaking::*;
 pub use crate::networking::*;
 pub use crate::remote_play::*;
@@ -41,6 +42,7 @@ mod callback;
 mod error;
 mod friends;
 mod input;
+mod manager;
 mod matchmaking;
 mod networking;
 pub mod networking_messages;
@@ -433,30 +435,6 @@ impl<M: Manager> Client<M> {
                 utils,
                 inner: self.inner.clone(),
             }
-        }
-    }
-}
-
-/// Used to separate client and game server modes
-pub unsafe trait Manager {
-    unsafe fn get_pipe() -> sys::HSteamPipe;
-}
-
-/// Manages keeping the steam api active for clients
-pub struct ClientManager {
-    _priv: (),
-}
-
-unsafe impl Manager for ClientManager {
-    unsafe fn get_pipe() -> sys::HSteamPipe {
-        sys::SteamAPI_GetHSteamPipe()
-    }
-}
-
-impl Drop for ClientManager {
-    fn drop(&mut self) {
-        unsafe {
-            sys::SteamAPI_Shutdown();
         }
     }
 }
